@@ -1,0 +1,17 @@
+{
+  "name": "news-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Kostiantyn Chumachenko",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "node-telegram-bot-api": "^0.66.0",
+    "openai": "^4.57.0",
+    "telegram-scraper": "^1.0.2"
+  }
+}
