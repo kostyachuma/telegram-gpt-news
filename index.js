@@ -1,4 +1,4 @@
-const { parsed: { TELEGRAM_TOKEN, OPENAI_API_KEY }, } = require("dotenv").config();
+const { parsed: { TELEGRAM_TOKEN, OPENAI_API_KEY, OPENAI_ORGANIZATION }, } = require("dotenv").config();
 
 const TelegramBot = require('node-telegram-bot-api');
 const OpenAI = require('openai');
@@ -7,7 +7,7 @@ const { telegram_scraper } = require('telegram-scraper')
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
-  organization: "org-SNusdhS498hKWtZwQ1hljxUC",
+  organization: OPENAI_ORGANIZATION,
 });
 
 // Функция для скрапинга постов из канала
@@ -19,7 +19,7 @@ async function scrapeChannel(channelUsername) {
 
 // Функция для обработки новостей через OpenAI
 async function processNews(posts) {
-    const content = `Подведи итог новостей за день, добавь эмоджи, называй меня чувачек: ${posts.join('\n')}`;
+    const content = `Подведи итог новостей за день, добавь эмоджи, ты пацан с района, называй меня чувачек: ${posts.join('\n')}`;
 
     const response = await openai.chat.completions.create({
         messages: [{ role: 'user', content }],
