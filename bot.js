@@ -15,7 +15,8 @@ async function sendProcessedNews(chatId, channelUsername) {
     }
 
     const summary = await processNews(posts);
-    bot.sendMessage(chatId, summary);
+
+    bot.sendMessage(chatId, summary, { parse_mode: 'HTML' });
 }
 
 // Функция для отправки списка каналов пользователю
