@@ -8,7 +8,8 @@ const userSchema = new mongoose.Schema({
     lastName: String,
     channels: [String], // Новое поле для хранения каналов
     requestCounter: { type: Array, default: [Date.now(), 0] }, // Счетчик запросов
-    availableRequests: { type: Array, default: [Date.now(), 10] }, // Доступные запросы
+    availableRequests: { type: Array, default: [Date.now(), 50] }, // Доступные запросы
+    payments: { type: Array, default: [] }, // Платежи
 });
 
 const User = mongoose.model('User', userSchema);

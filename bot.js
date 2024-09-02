@@ -21,11 +21,11 @@ async function sendProcessedNews(chatId, channelUsername) {
 
     if (requestCounter >= availableRequests) {
       const amount = 50;
-      const response = await bot.sendInvoice(
+      await bot.sendInvoice(
           chatId,
-          'Лимит запросов исчерпан',
+          'Пополнение баланса',
           `Пополните баланс ⭐️ для продолжения. Вы получите ${amount} запросов`,
-          'replenish balance',
+          'pay',
           '',
           'XTR',
           [{ label: 'Пополнение баланса', amount }]
@@ -224,6 +224,41 @@ bot.on('callback_query', async (callbackQuery) => {
                 await sendUserChannels(chatId);
             }
         });
+    }
+});
+
+bot.on("pre_checkout_query", async (ctx) => {
+    try {
+        await bot.answerPreCheckoutQuery(ctx.id, true);
+    } catch (error) {
+        console.error("answerPreCheckoutQuery failed");
+    }
+});
+
+bot.on("successful_payment", async (ctx) => {
+    if (!ctx?.successful_payment || !ctx?.from || !ctx?.chat) {
+        return;
+    }
+
+    try {
+        const user = await User.findOne({ chatId: ctx.chat.id });
+
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        const [_availableTimestamp, availableRequests] = user.availableRequests;
+
+        user.availableRequests = [Date.now(), availableRequests + ctx.successful_payment.total_amount];
+        user.payments.push(ctx);
+
+        await user.save();
+
+        bot.sendMessage(ctx.chat.id, "Баланс пополнен. Спасибо за поддержку!");
+    } catch (error) {
+        console.error("Error saving paid user:", error);
+    } finally {
+        await sendUserChannels(ctx.chat.id);
     }
 });
 
