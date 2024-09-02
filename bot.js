@@ -14,7 +14,36 @@ async function sendProcessedNews(chatId, channelUsername) {
         return;
     }
 
+    const user = await User.findOne({ chatId });
+
+    const [timestamp, requestCounter] = user.requestCounter;
+    const [_availableTimestamp, availableRequests] = user.availableRequests;
+
+    if (requestCounter >= availableRequests) {
+      const amount = 50;
+      const response = await bot.sendInvoice(
+          chatId,
+          'Лимит запросов исчерпан',
+          `Пополните баланс ⭐️ для продолжения. Вы получите ${amount} запросов`,
+          'replenish balance',
+          '',
+          'XTR',
+          [{ label: 'Пополнение баланса', amount }]
+      )
+
+      // console.log('Invoice response:', response);
+      throw new Error('Request limit exceeded');
+    }
+
+    if (Date.now() - timestamp < 60000) {
+      bot.sendMessage(chatId, 'Подождите минуту перед следующим запросом.');
+      throw new Error('Too many requests');
+    }
+
     const summary = await processNews(posts);
+
+    user.requestCounter = [Date.now(), requestCounter + 1];
+    await user.save();
 
     bot.sendMessage(chatId, summary, { parse_mode: 'HTML' });
 }
@@ -29,7 +58,7 @@ async function sendUserChannels(chatId) {
             user.channels.forEach(channel => {
                 channelButtons.push([
                     {
-                        text: channel,
+                        text: `🟢 ${channel}`,
                         callback_data: `/scrape ${channel}`
                     }
                 ]);
@@ -56,12 +85,19 @@ async function sendUserChannels(chatId) {
         }
 
         const options = {
+            parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: channelButtons
             }
         };
 
-        bot.sendMessage(chatId, 'Ваши каналы:', options);
+        const [_timestamp, requestCounter] = user.requestCounter;
+        const [_availableTimestamp, availableRequests] = user.availableRequests;
+
+        // console.log('Request counter:', requestCounter);
+        // console.log('Available requests:', availableRequests);
+
+        bot.sendMessage(chatId, `<b>⭐️ ${availableRequests - requestCounter}</b> \nВаши каналы:`, options);
     } catch (error) {
         console.error(error);
         bot.sendMessage(chatId, 'Произошла ошибка при получении списка каналов.');
@@ -78,15 +114,14 @@ bot.onText(/\/start/, async (msg) => {
         const user = new User({ chatId, username, firstName, lastName });
         await user.save();
         console.log('User saved:', user);
+        bot.sendMessage(chatId, 'Привет! Я бот, который собирает последние посты из публичных каналов и обрабатывает их с помощью OpenAI. Для начала добавьте каналы, которые вы хотите отслеживать.');
     } catch (error) {
         if (error.code === 11000) {
             console.log('User already exists');
         } else {
             console.error('Error saving user:', error);
         }
-
     } finally {
-        bot.sendMessage(chatId, 'Привет! Я бот, который собирает новости и делает их обзор.');
         // Отображение списка каналов пользователя
         await sendUserChannels(chatId);
     }
@@ -98,7 +133,6 @@ bot.onText(/\/scrape (.+)/, async (msg, match) => {
 
     try {
         await sendProcessedNews(chatId, channelUsername);
-        bot.sendMessage(chatId, 'Новости успешно обработаны и отправлены.');
     } catch (error) {
         console.error(error);
         bot.sendMessage(chatId, 'Произошла ошибка при обработке новостей.');
@@ -116,12 +150,10 @@ bot.on('callback_query', async (callbackQuery) => {
         const channelUsername = command.split(' ')[1];
         try {
             await sendProcessedNews(msg.chat.id, channelUsername);
-            bot.sendMessage(msg.chat.id, 'Новости успешно обработаны и отправлены.');
+            await sendUserChannels(msg.chat.id);
         } catch (error) {
             console.error(error);
-            bot.sendMessage(msg.chat.id, 'Произошла ошибка при обработке новостей.');
-        } finally {
-            await sendUserChannels(msg.chat.id);
+            // bot.sendMessage(msg.chat.id, 'Произошла ошибка при обработке новостей.');
         }
     } else if (command === '/deletechannel') {
         try {
@@ -167,7 +199,7 @@ bot.on('callback_query', async (callbackQuery) => {
         }
     } else if (command === '/addchannel') {
         bot.sendMessage(msg.chat.id, 'Введите имя канала, который вы хотите добавить:');
-        
+
         bot.once('message', async (responseMsg) => {
             const channelUsername = responseMsg.text;
             const chatId = responseMsg.chat.id;

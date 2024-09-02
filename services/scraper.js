@@ -16,7 +16,6 @@ async function scrapeChannel(channelUsername) {
 
 // Функция для обработки новостей через OpenAI
 async function processNews(posts) {
-
     const formatedPosts = posts.map((post) => {
         return `text: ${post.message_text}\n date: ${post.datetime}\n url: ${post.message_url}`;
     });
