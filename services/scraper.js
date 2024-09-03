@@ -1,4 +1,5 @@
 const OpenAI = require('openai');
+const dateFns = require('date-fns');
 const { telegram_scraper } = require('telegram-scraper');
 const { OPENAI_API_KEY, OPENAI_ORGANIZATION } = require('../config');
 
@@ -16,15 +17,18 @@ async function scrapeChannel(channelUsername) {
 
 // Функция для обработки новостей через OpenAI
 async function processNews(posts) {
-    const formatedPosts = posts.map((post) => {
-        return `text: ${post.message_text}\n date: ${post.datetime}\n url: ${post.message_url}`;
+    const formatedPosts = posts.reverse().map((post) => {
+        const date = dateFns.format(new Date(post.datetime), 'd MMM yyyy HH:mm');
+        return `text: ${post.message_text}\n date: ${date}\n url: ${post.message_url}`;
     });
 
     const prompts = [
       'Подведи итог постов за последнее время',
       'Доступные теги для форматирования текста: <b>bold</b>, <i>italic</i>, <u>underline</u>, <a href="http://www.example.com/">inline URL</a>',
-      'Каждый пост должен быть по такому шаблону: текст, через пробел дата и время в таком виде <a href="url">дата в формате 1 Янв 2024 12:00</a>',
-      'Используй эмоджи в тексте',
+      'Каждый пост должен быть по такому шаблону: текст, через пробел дата и время в таком виде <a href="url">date</a>',
+      'Без нумерации',
+      'Эмоджи в начале текста',
+      'Эмоджи в тексте',
       'Называй меня чувачек',
       'Ты пацан с района рассказываешь о новостях',
       'Сделай текст более позитивным, не искажая смысл',

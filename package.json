@@ -9,6 +9,7 @@
   "author": "Kostiantyn Chumachenko",
   "license": "ISC",
   "dependencies": {
+    "date-fns": "^3.6.0",
     "dotenv": "^16.4.5",
     "mongoose": "^8.6.0",
     "node-telegram-bot-api": "^0.66.0",

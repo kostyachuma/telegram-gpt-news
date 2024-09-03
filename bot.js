@@ -148,12 +148,15 @@ bot.on('callback_query', async (callbackQuery) => {
 
     if (command.startsWith('/scrape ')) {
         const channelUsername = command.split(' ')[1];
+
+        bot.sendMessage(msg.chat.id, 'Обработка новостей...');
+
         try {
             await sendProcessedNews(msg.chat.id, channelUsername);
             await sendUserChannels(msg.chat.id);
         } catch (error) {
             console.error(error);
-            // bot.sendMessage(msg.chat.id, 'Произошла ошибка при обработке новостей.');
+            bot.sendMessage(msg.chat.id, 'Произошла ошибка при обработке новостей.');
         }
     } else if (command === '/deletechannel') {
         try {
@@ -201,7 +204,9 @@ bot.on('callback_query', async (callbackQuery) => {
         bot.sendMessage(msg.chat.id, 'Введите имя канала, который вы хотите добавить:');
 
         bot.once('message', async (responseMsg) => {
-            const channelUsername = responseMsg.text;
+            const channelUsername = responseMsg.text.includes('http')
+                ? responseMsg.text.split('/').pop()
+                : responseMsg.text.replace('@', '');
             const chatId = responseMsg.chat.id;
 
             try {
