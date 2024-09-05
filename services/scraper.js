@@ -18,14 +18,13 @@ async function scrapeChannel(channelUsername) {
 // Функция для обработки новостей через OpenAI
 async function processNews(posts) {
     const formatedPosts = posts.reverse().map((post) => {
-        const date = dateFns.format(post.datetime, 'd MMM yyyy HH:mm');
-        return `text: ${post.message_text}\n date: ${date}\n url: ${post.message_url}`;
+        return `text: ${post.message_text}\n date: ${post.datetime}\n url: ${post.message_url}`;
     });
 
     const prompts = [
       'Подведи итог постов за последнее время',
       'Доступные теги для форматирования текста: <b>bold</b>, <i>italic</i>, <u>underline</u>, <a href="http://www.example.com/">inline URL</a>',
-      'Каждый пост должен быть по такому шаблону: текст, через пробел дата и время в таком виде <a href="url">date</a>',
+      'Каждый пост должен быть по такому шаблону: текст, через пробел дата и время в таком виде <a href="url">d MMM yyyy HH:mm</a>',
       'Без нумерации',
       'Эмоджи в начале текста',
       'Эмоджи в тексте',
