@@ -35,11 +35,11 @@ async function processNews(posts) {
       'Текст должен быть на языке постов',
     ]
 
-    // v1 Подведи итог новостей за день, добавь эмоджи, ты пацан с района, называй меня чувачек:
-    const content = `${prompts.join('; ')}\n\n ${formatedPosts.join('\n\n')}`;
-
     const response = await openai.chat.completions.create({
-        messages: [{ role: 'user', content }],
+        messages: [
+          { role: 'system', content: prompts.join(';') },
+          { role: 'user', content: formatedPosts.join('\n\n') }
+        ],
         model: 'gpt-4o-mini',
     });
 

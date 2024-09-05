@@ -35,8 +35,8 @@ async function sendProcessedNews(chatId, channelUsername) {
       throw new Error('Request limit exceeded');
     }
 
-    if (Date.now() - timestamp < 60000) {
-      bot.sendMessage(chatId, 'Подождите минуту перед следующим запросом.');
+    if (Date.now() - timestamp < 30000) {
+      bot.sendMessage(chatId, `Подождите ${30 - Math.floor((Date.now() - timestamp) / 1000)} секунд перед следующим запросом.`);
       throw new Error('Too many requests');
     }
 
