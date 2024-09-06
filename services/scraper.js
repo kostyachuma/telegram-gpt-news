@@ -1,5 +1,5 @@
 const OpenAI = require('openai');
-const dateFns = require('date-fns');
+// const dateFns = require('date-fns');
 const { telegram_scraper } = require('telegram-scraper');
 const { OPENAI_API_KEY, OPENAI_ORGANIZATION } = require('../config');
 
@@ -16,29 +16,31 @@ async function scrapeChannel(channelUsername) {
 }
 
 // Функция для обработки новостей через OpenAI
-async function processNews(posts) {
+async function processNews(posts, { isCompact } = { isCompact: false }) {
     const formatedPosts = posts.reverse().map((post) => {
         return `text: ${post.message_text}\n date: ${post.datetime}\n url: ${post.message_url}`;
     });
 
     const prompts = [
-      'Подведи итог постов за последнее время',
-      'Доступные теги для форматирования текста: <b>bold</b>, <i>italic</i>, <u>underline</u>, <a href="http://www.example.com/">inline URL</a>',
-      'Каждый пост должен быть по такому шаблону: текст, через пробел дата и время в таком виде <a href="url">d MMM yyyy HH:mm</a>',
-      'Без нумерации',
-      'Эмоджи в начале текста',
-      'Эмоджи в тексте',
-      'Называй меня чувачек',
-      'Ты пацан с района рассказываешь о новостях',
-      'Сделай текст более позитивным, не искажая смысл',
-      // 'Сократи количество постов, выбери самые важные и более новые',
-      'Текст должен быть на языке постов',
-    ]
+      'Підведи підсумок постів за останній час',
+      'Доступні теги: <b>жирний</b>, <i>курсив</i>, <u>підкреслений</u>, <a href="http://www.example.com/">посилання</a>.',
+      'Шаблон посту: Емодзі <b>Заголовок</b> - текст <a href="url">дата і час</a>',
+      'Використовуй емодзі',
+      'Пости без нумерації',
+      'Зроби текст позитивним, не спотворюючи зміст',
+      'Текст повинен бути українською мовою',
+      ...(isCompact
+        ? ['Скороти кількість постів, вибери найважливіші та більш нові']
+        : ['Вступе речення', 'Заключне речення',]
+      ),
+      'Ти пацан з району, розповідаєш про новини',
+      'Називай мене "чувачок"',
+  ];
 
     const response = await openai.chat.completions.create({
         messages: [
-          { role: 'system', content: prompts.join(';') },
-          { role: 'user', content: formatedPosts.join('\n\n') }
+          { role: 'system', content: prompts.join('\n') },
+          { role: 'user', content: ['Пости:', ...formatedPosts].join('\n') }
         ],
         model: 'gpt-4o-mini',
     });
@@ -46,4 +48,7 @@ async function processNews(posts) {
     return response.choices[0].message.content;
 }
 
-module.exports = { scrapeChannel, processNews };
+module.exports = {
+  scrapeChannel,
+  processNews
+};
