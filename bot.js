@@ -5,7 +5,104 @@ const { TELEGRAM_TOKEN } = require('./config');
 
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
-// Функция для отправки обработанных новостей пользователям
+bot.onText(/\/start/, handleStartCommand);
+bot.on('message', handleForwardedMessage);
+bot.on("pre_checkout_query", handlePreCheckoutQuery);
+bot.on("successful_payment", handleSuccessfulPayment);
+
+// Обработка нажатий на кнопки
+bot.on('callback_query', async (callbackQuery) => {
+    const msg = callbackQuery.message;
+    const command = callbackQuery.data;
+
+    if (command.startsWith('/scrape ')) {
+        const channelUsername = command.split(' ')[1];
+
+        bot.sendMessage(msg.chat.id, 'Обробка новин...');
+
+        try {
+            await sendProcessedNews(msg.chat.id, channelUsername);
+            await sendUserChannels(msg.chat.id);
+        } catch (error) {
+            console.error(error);
+            bot.sendMessage(msg.chat.id, 'Сталася помилка при обробці новин.');
+        }
+    } else if (command === '/deletechannel') {
+        try {
+            const user = await User.findOne({ chatId: msg.chat.id });
+            if (user && user.channels.length > 0) {
+                const deleteButtons = user.channels.map(channel => ([
+                    {
+                        text: channel,
+                        callback_data: `/confirmdelete ${channel}`
+                    }
+                ]));
+
+                const options = {
+                    reply_markup: {
+                        inline_keyboard: deleteButtons
+                    }
+                };
+
+                bot.sendMessage(msg.chat.id, 'Виберіть канал для видалення:', options);
+            } else {
+                bot.sendMessage(msg.chat.id, 'У вас немає доданих каналів.');
+            }
+        } catch (error) {
+            console.error(error);
+            bot.sendMessage(msg.chat.id, 'Сталася помилка при отриманні списку каналів.');
+        }
+    } else if (command.startsWith('/confirmdelete ')) {
+        const channelUsername = command.split(' ')[1];
+        try {
+            const user = await User.findOne({ chatId: msg.chat.id });
+            if (user) {
+                user.channels = user.channels.filter(channel => channel !== channelUsername);
+                await user.save();
+                bot.sendMessage(msg.chat.id, `Канал ${channelUsername} успішно видалений.`);
+            } else {
+                bot.sendMessage(msg.chat.id, 'Користувача не знайдено.');
+            }
+        } catch (error) {
+            console.error(error);
+            bot.sendMessage(msg.chat.id, 'Сталася помилка при видаленні каналу.');
+        } finally {
+            await sendUserChannels(msg.chat.id);
+        }
+    } else if (command === '/addchannel') {
+        bot.sendVideo(msg.chat.id, 'add_chanel.mp4', {
+            caption: '👆 Відео-інструкція\n\n🔁 Перешліть будь-яке повідомлення з каналу, який хочете додати. Канал з\'явиться у вашому списку ✅',
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: '🏠 Меню',
+                            callback_data: '/menu'
+                        }
+                    ]
+                ]
+            }
+        });
+    } else if (command === '/compact') {
+        try {
+            const user = await User.findOne({ chatId: msg.chat.id });
+
+            user.isCompact = !user.isCompact;
+            await user.save();
+
+            bot.sendMessage(msg.chat.id, `Режим компактності ${user.isCompact ? 'увімкнено' : 'вимкнено'}.`);
+        } catch (error) {
+            console.error(error);
+            bot.sendMessage(msg.chat.id, 'Сталася помилка при зміні режиму компактності.');
+        } finally {
+            await sendUserChannels(msg.chat.id);
+        }
+    } else if (command === '/menu') {
+        sendUserChannels(msg.chat.id);
+    }
+});
+
+// Function to send processed news to users
 async function sendProcessedNews(chatId, channelUsername) {
     const posts = await scrapeChannel(channelUsername);
 
@@ -48,7 +145,7 @@ async function sendProcessedNews(chatId, channelUsername) {
     bot.sendMessage(chatId, summary, { parse_mode: 'HTML' });
 }
 
-// Функция для отправки списка каналов пользователю
+// Function to send the list of channels to the user
 async function sendUserChannels(chatId) {
     try {
         const user = await User.findOne({ chatId });
@@ -111,8 +208,8 @@ async function sendUserChannels(chatId) {
     }
 }
 
-// Обработка команд Telegram бота
-bot.onText(/\/start/, async (msg) => {
+// Function to handle the /start command
+async function handleStartCommand(msg) {
     const chatId = msg.chat.id;
     const { username, first_name: firstName, last_name: lastName } = msg.from;
 
@@ -130,136 +227,47 @@ bot.onText(/\/start/, async (msg) => {
     } finally {
         await sendUserChannels(chatId);
     }
-});
+}
 
-bot.onText(/\/scrape (.+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
-    const channelUsername = match[1];
-
-    try {
-        await sendProcessedNews(chatId, channelUsername);
-    } catch (error) {
-        console.error(error);
-        bot.sendMessage(chatId, 'Сталася помилка при обробці новин.');
-    } finally {
-        await sendUserChannels(chatId);
-    }
-});
-
-// Обработка нажатий на кнопки
-bot.on('callback_query', async (callbackQuery) => {
-    const msg = callbackQuery.message;
-    const command = callbackQuery.data;
-
-    if (command.startsWith('/scrape ')) {
-        const channelUsername = command.split(' ')[1];
-
-        bot.sendMessage(msg.chat.id, 'Обробка новин...');
+// Function to handle forwarded messages
+async function handleForwardedMessage(msg) {
+    if (msg.forward_from_chat) {
+        const channelUsername = msg.forward_from_chat.username || msg.forward_from_chat.id;
+        const chatId = msg.chat.id;
 
         try {
-            await sendProcessedNews(msg.chat.id, channelUsername);
-            await sendUserChannels(msg.chat.id);
-        } catch (error) {
-            console.error(error);
-            bot.sendMessage(msg.chat.id, 'Сталася помилка при обробці новин.');
-        }
-    } else if (command === '/deletechannel') {
-        try {
-            const user = await User.findOne({ chatId: msg.chat.id });
-            if (user && user.channels.length > 0) {
-                const deleteButtons = user.channels.map(channel => ([
-                    {
-                        text: channel,
-                        callback_data: `/confirmdelete ${channel}`
-                    }
-                ]));
-
-                const options = {
-                    reply_markup: {
-                        inline_keyboard: deleteButtons
-                    }
-                };
-
-                bot.sendMessage(msg.chat.id, 'Виберіть канал для видалення:', options);
-            } else {
-                bot.sendMessage(msg.chat.id, 'У вас немає доданих каналів.');
-            }
-        } catch (error) {
-            console.error(error);
-            bot.sendMessage(msg.chat.id, 'Сталася помилка при отриманні списку каналів.');
-        }
-    } else if (command.startsWith('/confirmdelete ')) {
-        const channelUsername = command.split(' ')[1];
-        try {
-            const user = await User.findOne({ chatId: msg.chat.id });
+            const user = await User.findOne({ chatId });
             if (user) {
-                user.channels = user.channels.filter(channel => channel !== channelUsername);
-                await user.save();
-                bot.sendMessage(msg.chat.id, `Канал ${channelUsername} успішно видалений.`);
-            } else {
-                bot.sendMessage(msg.chat.id, 'Користувача не знайдено.');
-            }
-        } catch (error) {
-            console.error(error);
-            bot.sendMessage(msg.chat.id, 'Сталася помилка при видаленні каналу.');
-        } finally {
-            await sendUserChannels(msg.chat.id);
-        }
-    } else if (command === '/addchannel') {
-        bot.sendMessage(msg.chat.id, 'Введіть username каналу (наприклад: @telegram, telegram) або посилання на канал (наприклад: https://t.me/telegram)');
-
-        bot.once('message', async (responseMsg) => {
-            const channelUsername = responseMsg.text.includes('http')
-                ? responseMsg.text.split('/').pop()
-                : responseMsg.text.replace('@', '');
-            const chatId = responseMsg.chat.id;
-
-            try {
-                const user = await User.findOne({ chatId });
-                if (user) {
-                    if (!user.channels.includes(channelUsername)) {
-                        user.channels.push(channelUsername);
-                        await user.save();
-                        bot.sendMessage(chatId, `Канал ${channelUsername} успішно доданий.`);
-                    } else {
-                        bot.sendMessage(chatId, `Канал ${channelUsername} вже доданий.`);
-                    }
+                if (!user.channels.includes(channelUsername)) {
+                    user.channels.push(channelUsername);
+                    await user.save();
+                    bot.sendMessage(chatId, `Канал ${channelUsername} успішно доданий.`);
                 } else {
-                    bot.sendMessage(chatId, 'Користувача не знайдено.');
+                    bot.sendMessage(chatId, `Канал ${channelUsername} вже доданий.`);
                 }
-            } catch (error) {
-                console.error(error);
-                bot.sendMessage(chatId, 'Сталася помилка при додаванні каналу.');
-            } finally {
-                await sendUserChannels(chatId);
+            } else {
+                bot.sendMessage(chatId, 'Користувача не знайдено.');
             }
-        });
-    } else if (command === '/compact') {
-        try {
-            const user = await User.findOne({ chatId: msg.chat.id });
-
-            user.isCompact = !user.isCompact;
-            await user.save();
-
-            bot.sendMessage(msg.chat.id, `Режим компактності ${user.isCompact ? 'увімкнено' : 'вимкнено'}.`);
         } catch (error) {
             console.error(error);
-            bot.sendMessage(msg.chat.id, 'Сталася помилка при зміні режиму компактності.');
+            bot.sendMessage(chatId, 'Сталася помилка при додаванні каналу.');
         } finally {
-            await sendUserChannels(msg.chat.id);
+            await sendUserChannels(chatId);
         }
     }
-});
+}
 
-bot.on("pre_checkout_query", async (ctx) => {
+// Function to handle pre-checkout query
+async function handlePreCheckoutQuery(ctx) {
     try {
         await bot.answerPreCheckoutQuery(ctx.id, true);
     } catch (error) {
         console.error("answerPreCheckoutQuery failed");
     }
-});
+}
 
-bot.on("successful_payment", async (ctx) => {
+// Function to handle successful payment
+async function handleSuccessfulPayment(ctx) {
     if (!ctx?.successful_payment || !ctx?.from || !ctx?.chat) {
         return;
     }
@@ -284,6 +292,6 @@ bot.on("successful_payment", async (ctx) => {
     } finally {
         await sendUserChannels(ctx.chat.id);
     }
-});
+}
 
 module.exports = bot;
