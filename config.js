@@ -1,4 +1,5 @@
 const { parsed: { TELEGRAM_TOKEN, OPENAI_API_KEY, OPENAI_ORGANIZATION, MONGODB_URI } } = require("dotenv").config();
+
 const mongoose = require('mongoose');
 
 // Подключение к MongoDB
