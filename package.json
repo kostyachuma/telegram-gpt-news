@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Kostiantyn Chumachenko",
@@ -15,5 +17,8 @@
     "node-telegram-bot-api": "^0.66.0",
     "openai": "^4.57.0",
     "telegram-scraper": "^1.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   }
 }
