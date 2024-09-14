@@ -1,5 +1,6 @@
 const bot = require('../bot');
 const User = require('../models/user');
+const Channel = require('../models/channel');
 const { sendProcessedNews, sendUserChannels } = require('../services/messageService');
 const { handleError } = require('../utils/errorHandler');
 
@@ -10,24 +11,36 @@ const handlers = {
         await sendUserChannels(chatId);
     },
     '/deletechannel': async (chatId) => {
-        const user = await User.findOne({ chatId });
+        const user = await User.findOne({ chatId }).populate('channels');
         if (!user || user.channels.length === 0) {
             bot.sendMessage(chatId, 'У вас немає доданих каналів.');
             return;
         }
+
         const deleteButtons = user.channels.map(channel => ([
-            { text: channel, callback_data: `/confirmdelete ${channel}` }
+            { text: channel.title, callback_data: `/confirmdelete ${channel._id}` }
         ]));
+
         bot.sendMessage(chatId, 'Виберіть канал для видалення:', {
             reply_markup: { inline_keyboard: deleteButtons }
         });
     },
-    '/confirmdelete': async (chatId, channelUsername) => {
+    '/confirmdelete': async (chatId, channelId) => {
         const user = await User.findOne({ chatId });
+
         if (!user) return;
-        user.channels = user.channels.filter(channel => channel !== channelUsername);
+        
+        const channel = await Channel.findById(channelId);
+
+        if (!channel) {
+            bot.sendMessage(chatId, 'Канал не знайдено.');
+            return;
+        }
+
+        user.channels = user.channels.filter(ch => !ch.equals(channelId));
         await user.save();
-        bot.sendMessage(chatId, `Канал ${channelUsername} успішно видалений.`);
+        
+        bot.sendMessage(chatId, `Канал ${channel.title} успішно видалений.`);
         await sendUserChannels(chatId);
     },
     '/addchannel': (chatId) => {

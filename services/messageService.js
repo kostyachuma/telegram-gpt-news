@@ -40,14 +40,15 @@ async function sendProcessedNews(chatId, channelUsername) {
 
 async function sendUserChannels(chatId) {
     try {
-        const user = await User.findOne({ chatId });
+        const user = await User.findOne({ chatId }).populate('channels');
+
         if (!user) {
             bot.sendMessage(chatId, 'Користувача не знайдено.');
             return;
         }
 
         const channelButtons = user.channels.map(channel => ([
-            { text: `👉 ${channel}`, callback_data: `/scrape ${channel}` }
+            { text: `👉 ${channel.title}`, callback_data: `/scrape ${channel.username || channel.id}` }
         ]));
 
         channelButtons.push([{ text: `${user.isCompact ? '✅' : '☑️'} Коротко`, callback_data: '/compact' }]);

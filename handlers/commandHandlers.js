@@ -1,34 +1,72 @@
 const bot = require('../bot');
+const Channel = require('../models/channel');
 const { findOrCreateUser } = require('../services/userService');
 const { sendUserChannels } = require('../services/messageService');
 
 async function handleStartCommand(msg) {
     const { chat: { id: chatId }, from: { username, first_name: firstName, last_name: lastName } } = msg;
     const user = await findOrCreateUser(chatId, { username, firstName, lastName });
+
     if (user) {
-        bot.sendMessage(chatId, 'Привіт! Я бот, який збирає останні пости з публічних каналів і обробляє їх за допомогою OpenAI. Щоб почати, додайте канали, які ви хочете відстежувати.');
         await sendUserChannels(chatId);
     }
+}
+
+// Объект для хранения таймеров дебаунсинга
+const debounceTimers = {};
+
+// Функция дебаунсинга
+function debounce(func, delay, key) {
+    return (...args) => {
+        if (debounceTimers[key]) {
+            clearTimeout(debounceTimers[key]);
+        }
+        debounceTimers[key] = setTimeout(() => {
+            func.apply(this, args);
+            delete debounceTimers[key];
+        }, delay);
+    };
 }
 
 async function handleForwardedMessage(msg) {
     if (!msg.forward_from_chat) return;
 
-    const channelUsername = msg.forward_from_chat.username || msg.forward_from_chat.id;
+    const { id, title, username, type } = msg.forward_from_chat;
     const chatId = msg.chat.id;
-    const user = await findOrCreateUser(chatId);
 
-    if (!user) return;
+    // Создаем уникальный ключ для дебаунсинга
+    const debounceKey = `${chatId}_${id}`;
 
-    if (!user.channels.includes(channelUsername)) {
-        user.channels.push(channelUsername);
-        await user.save();
-        bot.sendMessage(chatId, `Канал ${channelUsername} успішно доданий.`);
-    } else {
-        bot.sendMessage(chatId, `Канал ${channelUsername} вже доданий.`);
-    }
+    // Применяем дебаунсинг к функции добавления канала
+    const debouncedAddChannel = debounce(async () => {
+        const user = await findOrCreateUser(chatId);
+        if (!user) return;
 
-    await sendUserChannels(chatId);
+        let channel = await Channel.findOne({ id });
+
+        if (!channel) {
+            channel = new Channel({
+                id,
+                title,
+                username,
+                type
+            });
+            await channel.save();
+        }
+
+        if (!user.channels.includes(channel._id)) {
+            user.channels.push(channel._id);
+            await user.save();
+            bot.sendMessage(chatId, `Канал ${channel.title} успішно доданий.`);
+        } else {
+            bot.sendMessage(chatId, `Канал ${channel.title} вже доданий.`);
+        }
+
+        await sendUserChannels(chatId);
+    }, 1000, debounceKey); // Задержка в 1 секунду
+
+    // Вызываем дебаунсированную функцию
+    debouncedAddChannel();
 }
 
 module.exports = {
