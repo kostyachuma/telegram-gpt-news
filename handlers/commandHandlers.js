@@ -12,10 +12,10 @@ async function handleStartCommand(msg) {
     }
 }
 
-// Объект для хранения таймеров дебаунсинга
+// Object for storing debounce timers
 const debounceTimers = {};
 
-// Функция дебаунсинга
+// Debouncing function
 function debounce(func, delay, key) {
     return (...args) => {
         if (debounceTimers[key]) {
@@ -34,10 +34,10 @@ async function handleForwardedMessage(msg) {
     const { id, title, username, type } = msg.forward_from_chat;
     const chatId = msg.chat.id;
 
-    // Создаем уникальный ключ для дебаунсинга
+    // Create a unique key for debouncing
     const debounceKey = `${chatId}_${id}`;
 
-    // Применяем дебаунсинг к функции добавления канала
+    // Apply debouncing to the channel addition function
     const debouncedAddChannel = debounce(async () => {
         const user = await findOrCreateUser(chatId);
         if (!user) return;
@@ -63,9 +63,9 @@ async function handleForwardedMessage(msg) {
         }
 
         await sendUserChannels(chatId);
-    }, 1000, debounceKey); // Задержка в 1 секунду
+    }, 1000, debounceKey); // Delay of 1 second
 
-    // Вызываем дебаунсированную функцию
+    // Call the debounced function
     debouncedAddChannel();
 }
 
