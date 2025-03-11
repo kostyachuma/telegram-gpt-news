@@ -10,8 +10,10 @@ const handlers = {
         await sendProcessedNews(chatId, channelUsername);
         await sendUserChannels(chatId);
     },
+
     '/deletechannel': async (chatId) => {
         const user = await User.findOne({ chatId }).populate('channels');
+
         if (!user || user.channels.length === 0) {
             bot.sendMessage(chatId, 'У вас немає доданих каналів.');
             return;
@@ -25,6 +27,7 @@ const handlers = {
             reply_markup: { inline_keyboard: deleteButtons }
         });
     },
+
     '/confirmdelete': async (chatId, channelId) => {
         const user = await User.findOne({ chatId });
 
@@ -43,6 +46,7 @@ const handlers = {
         bot.sendMessage(chatId, `Канал ${channel.title} успішно видалений.`);
         await sendUserChannels(chatId);
     },
+
     '/addchannel': (chatId) => {
         bot.sendVideo(chatId, 'add_chanel.mp4', {
             caption: '👆 Відео-інструкція\n\n🔁 Перешліть будь-яке повідомлення з каналу, який хочете додати. Канал з\'явиться у вашому списку ✅',
@@ -51,6 +55,7 @@ const handlers = {
             }
         });
     },
+
     '/compact': async (chatId) => {
         const user = await User.findOne({ chatId });
         if (!user) return;
@@ -59,6 +64,7 @@ const handlers = {
         bot.sendMessage(chatId, `Режим компактності ${user.isCompact ? 'увімкнено' : 'вимкнено'}.`);
         await sendUserChannels(chatId);
     },
+
     '/menu': (chatId) => sendUserChannels(chatId)
 };
 

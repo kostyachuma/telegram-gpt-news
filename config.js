@@ -2,7 +2,7 @@ const { parsed: { TELEGRAM_TOKEN, OPENAI_API_KEY, OPENAI_ORGANIZATION, MONGODB_U
 
 const mongoose = require('mongoose');
 
-// Подключение к MongoDB
+// Connecting to MongoDB
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.error('MongoDB connection error:', err));

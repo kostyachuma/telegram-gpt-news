@@ -4,38 +4,43 @@ const { scrapeChannel, processNews } = require('./scraper');
 const { handleError } = require('../utils/errorHandler');
 
 async function sendProcessedNews(chatId, channelUsername) {
-    const user = await User.findOne({ chatId });
-    if (!user) {
-        handleError(chatId, 'Користувача не знайдено');
-        return;
+    try {
+        const user = await User.findOne({ chatId });
+
+        if (!user) {
+            handleError(chatId, 'Користувача не знайдено');
+            return;
+        }
+
+        const [timestamp, requestCounter] = user.requestCounter;
+        const [_availableTimestamp, availableRequests] = user.availableRequests;
+
+        if (requestCounter >= availableRequests) {
+            await bot.sendInvoice(chatId, 'Поповнення балансу', 
+                `Поповніть баланс ⭐️ для продовження. Ви отримаєте 50 запитів`, 
+                'pay', '', 'XTR', [{ label: 'Поповнення балансу', amount: 50 }]);
+            return;
+        }
+
+        if (Date.now() - timestamp < 10000) {
+            bot.sendMessage(chatId, `Зачекайте ${10 - Math.floor((Date.now() - timestamp) / 1000)} секунд перед наступним запитом.`);
+            return;
+        }
+
+        const posts = await scrapeChannel(channelUsername);
+        if (posts.length === 0) {
+            console.log('No new posts today.');
+            return;
+        }
+
+        const summary = await processNews(posts, { isCompact: user.isCompact });
+        user.requestCounter = [Date.now(), requestCounter + 1];
+        await user.save();
+
+        bot.sendMessage(chatId, summary, { parse_mode: 'HTML' });
+    } catch (error) {
+        handleError(chatId, 'Помилка при обробці новин:', error);
     }
-
-    const [timestamp, requestCounter] = user.requestCounter;
-    const [_availableTimestamp, availableRequests] = user.availableRequests;
-
-    if (requestCounter >= availableRequests) {
-        await bot.sendInvoice(chatId, 'Поповнення балансу', 
-            `Поповніть баланс ⭐️ для продовження. Ви отримаєте 50 запитів`, 
-            'pay', '', 'XTR', [{ label: 'Поповнення балансу', amount: 50 }]);
-        return;
-    }
-
-    if (Date.now() - timestamp < 10000) {
-        bot.sendMessage(chatId, `Зачекайте ${10 - Math.floor((Date.now() - timestamp) / 1000)} секунд перед наступним запитом.`);
-        return;
-    }
-
-    const posts = await scrapeChannel(channelUsername);
-    if (posts.length === 0) {
-        console.log('No new posts today.');
-        return;
-    }
-
-    const summary = await processNews(posts, { isCompact: user.isCompact });
-    user.requestCounter = [Date.now(), requestCounter + 1];
-    await user.save();
-
-    bot.sendMessage(chatId, summary, { parse_mode: 'HTML' });
 }
 
 async function sendUserChannels(chatId) {

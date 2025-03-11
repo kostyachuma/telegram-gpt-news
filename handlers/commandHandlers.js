@@ -29,6 +29,8 @@ function debounce(func, delay, key) {
 }
 
 async function handleForwardedMessage(msg) {
+    // console.log(msg);
+
     if (!msg.forward_from_chat) return;
 
     const { id, title, username, type } = msg.forward_from_chat;
@@ -50,6 +52,9 @@ async function handleForwardedMessage(msg) {
                 title,
                 username,
                 type
+                /**
+                 * @todo Add other channel properties
+                 */
             });
             await channel.save();
         }
